@@ -10,8 +10,6 @@ class Vision:
         self.camera_manager = camera_manager
         self.connection = connection
 
-        self.display = 
-
     def run(self):
         """Main process function.
         Captures an image, processes the image, and sends results to the RIO.
