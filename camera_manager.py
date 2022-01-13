@@ -120,7 +120,7 @@ class MockImageManager:
         print(error, file=sys.stderr)
 
     def set_camera_property(self, property, value) -> None:
-        ...
+        pass
 
 
 class MockVideoManager:
@@ -161,7 +161,7 @@ class MockVideoManager:
         print(error, file=sys.stderr)
 
     def set_camera_property(self, property, value) -> None:
-        ...
+        pass
 
 
 class WebcamCameraManager:

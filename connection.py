@@ -57,7 +57,7 @@ class DummyConnection:
         self.results = results
 
     def pong(self) -> None:
-        ...
+        pass
 
     def set_fps(self) -> None:
-        ...
+        pass
