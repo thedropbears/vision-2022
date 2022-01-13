@@ -4,7 +4,7 @@ The Drop Bears' vision code for FIRST Rapid React (FRC 2022)
 ## Setup
 To install dependencies do:
 
-    pip install -r requirments.txt
+    pip install -r requirements.txt
 
 # Run
 ## Desktop
