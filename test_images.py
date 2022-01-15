@@ -1,8 +1,9 @@
 import pytest
 from typing import Tuple
 import math
+from connection import DummyConnection
 from vision import Vision
-from camera_manager import MockCameraManager
+from camera_manager import MockImageManager
 
 # load expected values for sample images
 # should be in format: image name,dist,angle
@@ -18,7 +19,7 @@ allowed_dist_error = 0.3
 
 @pytest.mark.parametrize("filename,expected_dist,expected_angle", images)
 def test_sample_images(filename: str, expected_dist: float, expected_angle: float):
-    vision = Vision(MockCameraManager(filename))
+    vision = Vision(MockImageManager(filename), DummyConnection())
     output_dist, output_angle = (41.99, 1.99)#vision.run()
 
     dist_error = abs(output_dist-expected_dist)
