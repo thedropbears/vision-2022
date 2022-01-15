@@ -44,10 +44,10 @@ class CameraManager:
         # parameters are the opposite of numpy's (technically it is an array, not an actual image).
         self.frame = np.zeros(shape=(FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
 
-    def get_frame(self) -> Tuple[float, np.ndarray]:
+    def get_frame(self) -> Tuple[int, np.ndarray]:
         """Gets a frame from the camera.
         Returns:
-            Frame_time, or 0 on error.
+            Time the frame was captured in microseconds, or 0 on error.
             A numpy array of the frame, dtype=np.uint8, BGR.
         """
         frame_time, self.frame = self.source.grabFrameNoTimeout(image=self.frame)
@@ -96,13 +96,13 @@ class MockImageManager:
         """
         self.image = new_image
 
-    def get_frame(self) -> Tuple[float, np.ndarray]:
+    def get_frame(self) -> Tuple[int, np.ndarray]:
         """Returns self.image.
         Returns:
-            0.1: Simulates the frame_time
+            1: Simulates the frame_time
             self.image, a BGR numpy array.
         """
-        return 0.1, self.image.copy()
+        return 1, self.image.copy()
 
     def send_frame(self, frame: np.ndarray):
         if self.display_output:
@@ -132,7 +132,7 @@ class MockVideoManager:
         self.video = video
         self.display_output = display_output
 
-    def get_frame(self) -> Tuple[float, np.ndarray]:
+    def get_frame(self) -> Tuple[int, np.ndarray]:
         """Returns the next frame of self.video.
         Returns:
             Whether or not it was successful. False means error.
@@ -174,7 +174,7 @@ class WebcamCameraManager:
         """
         self.video = cv2.VideoCapture(camera)
 
-    def get_frame(self) -> Tuple[float, np.ndarray]:
+    def get_frame(self) -> Tuple[int, np.ndarray]:
         """Returns the current video frame.
         Returns:
             Whether or not it was successful. False means error.
