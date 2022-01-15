@@ -78,18 +78,19 @@ class Vision:
         connections = [[] for _ in contours]
         for i, a in enumerate(contours):
             a_com = a.mean(axis=0)[0]
+            a_area = cv2.contourArea(a)
             for j, b in enumerate(contours[i + 1:]):
-                max_metric = max(cv2.contourArea(a), cv2.contourArea(b)) * METRIC_SCALE_FACTOR
+                max_metric = max(a_area, cv2.contourArea(b)) * METRIC_SCALE_FACTOR
                 b_com = b.mean(axis=0)[0]
-                d = np.abs(a_com - b_com)
-                metric = d[0] * d[0] + d[1] * d[1]
+                d = a_com - b_com
+                metric = d[0] ** 2 + d[1] ** 2
                 if (metric < max_metric):
                     connections[i].append(j + i + 1)
                     connections[j + i + 1].append(i)
         # Breadth first search from each contour that wasn't yet assigned to a group to find its group
         assigned = [False for _ in contours]
         group = set()
-        groups = list()
+        groups = []
         for i, c in enumerate(connections):
             if assigned[i]: continue
             group = {i}
