@@ -1,9 +1,10 @@
 from camera_manager import CameraManager
 from connection import NTConnection
+from magic_numbers import *
+from typing import Tuple, Optional, List
 import cv2
 import numpy as np
 import time
-from typing import Tuple, Optional
 
 class Vision:
     def __init__(self, camera_manager: CameraManager, connection: NTConnection) -> None:
@@ -26,10 +27,10 @@ class Vision:
         results = self.process_image(self.frame)
 
         if results is not None:
-            distance, angle = results
+            x, y = results
             self.connection.send_results(
-                (distance, angle, time.monotonic())
-            )  # distance (meters), angle (radians), timestamp
+                (x, y, time.monotonic())
+            )  # x and y in NDC, positive axes right and down; timestamp
 
         # send image to display on driverstation
         self.camera_manager.send_frame(self.frame)
@@ -39,7 +40,6 @@ class Vision:
         """Takes a frame returns the target dist & angle
         returns None if there is no target
         """
-
         new_frame = self.preprocess(frame)
         contours = self.find_contours(new_frame)
         filtered_contours = self.filter_contours(contours)
@@ -48,45 +48,90 @@ class Vision:
         groups = self.group_contours(filtered_contours)
         if len(groups) == 0:
             return None
-        best_group = self.rank_groups(groups)
-        dist, angle = self.get_values(best_group)
+        best_group = self.rank_groups(contours, groups)
+        return self.get_values(contours, best_group, (frame.shape[1], frame.shape[0]))
 
-        return dist, angle
-
-    def preprocess(self, frame):
-        """Do any preprocessing we might want to do on the frame
-        e.g. convert to hsv, threshold, erode/dilate
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
+        """Creates a mask of expected target green color
         """
-        return frame
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, TARGET_HSV_LOW, TARGET_HSV_HIGH)
+        mask = cv2.erode(mask, ERODE_DILATE_KERNEL)
+        mask = cv2.dilate(mask, ERODE_DILATE_KERNEL)
+        return mask
 
-    def find_contours(self, frame):
-        """Finds the contours, see https://docs.opencv.org/4.x/d4/d73/tutorial_py_contours_begin.html
+    def find_contours(self, mask: np.ndarray) -> np.ndarray:
+        """Finds contours on a grayscale mask
         """
-        return []
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        return contours
 
-    def filter_contours(self, contours):
-        """Takes contours and returns on ones that are likely to be vision tape
-        Checks things like size, width to height ratio
+    def filter_contours(self, contours: np.ndarray) -> np.ndarray:
+        """Unimplemented, returns identity
         """
-        return []
+        return contours
 
-    def group_contours(self, contours):
-        """Create potential groups out of the contours
-        Group based on distance, sizes and relative positions
+    def group_contours(self, contours: np.ndarray) -> List[List[int]]:
+        """Returs a nested list of contour indices grouped by relative distance
         """
-        pass
+        # Build an adjacency list based on distance between contours relative to their area
+        connections = [[] for _ in contours]
+        for i, a in enumerate(contours):
+            a_com = a.mean(axis=0)[0]
+            for j, b in enumerate(contours[i + 1:]):
+                max_metric = max(cv2.contourArea(a), cv2.contourArea(b)) * METRIC_SCALE_FACTOR
+                b_com = b.mean(axis=0)[0]
+                d = np.abs(a_com - b_com)
+                metric = d[0] * d[0] + d[1] * d[1]
+                if (metric < max_metric):
+                    connections[i].append(j + i + 1)
+                    connections[j + i + 1].append(i)
+        # Breadth first search from each contour that wasn't yet assigned to a group to find its group
+        assigned = [False for _ in contours]
+        group = set()
+        groups = list()
+        for i, c in enumerate(connections):
+            if assigned[i]: continue
+            group = {i}
+            assigned[i] = True
+            horizon = set(c)
+            while (True):
+                if len(horizon) == 0:
+                    # Group completed
+                    groups.append(list(group))
+                    break
+                for i in horizon: assigned[i] = True
+                group.update(horizon)
+                new_horizon = set()
+                for old in horizon:
+                    new_horizon.update(connections[old])
+                new_horizon.difference_update(group)
+                horizon = new_horizon
+        return groups
 
-    def rank_groups(self, groups):
+    def rank_groups(self, contours: np.ndarray, groups: List[List[int]]) -> List[int]:
         """Returns the group that is most likely to be the target
         Could use metrics such as curvature, consistency of contours, consistency with last frame
-        """
-        pass
 
-    def get_values(self, group):
-        """Get angle and distance from the camera of the group
-        Find the center of the group and then do maths to work out angle and dist
+        Currently just returns the group with most elements
         """
-        pass
+        return max(groups, key=len)
+
+    def get_values(self, contours: np.ndarray, group: List[int], frame_size: Tuple[int, int]) -> Tuple[float, float]:
+        """Returns position of target in normalized device coordinates from contour group
+        """
+        # Calculates mean of contour centers weighted by their areas
+        summed = np.array((0.0, 0.0))
+        total_area = 0
+        for c in group:
+            area = cv2.contourArea(contours[c])
+            summed += contours[c].mean(axis=0)[0] * area
+            total_area += area
+        weighted_position =  summed / total_area
+        return (
+            weighted_position[0] * 2.0 / frame_size[0] - 1.0,
+            weighted_position[1] * 2.0 / frame_size[1] - 1.0,
+        )
 
 
 if __name__ == "__main__":
