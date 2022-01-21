@@ -197,4 +197,5 @@ class WebcamCameraManager:
         print(error, file=sys.stderr)
 
     def set_camera_property(self, property, value) -> None:
-        pass
+        self.video.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)
+        self.video.set(cv2.CAP_PROP_EXPOSURE, 0)

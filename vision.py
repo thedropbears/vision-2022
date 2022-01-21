@@ -63,7 +63,7 @@ class Vision:
     def find_contours(self, mask: np.ndarray) -> np.ndarray:
         """Finds contours on a grayscale mask
         """
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        *_, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         return contours
 
     def filter_contours(self, contours: np.ndarray) -> np.ndarray:

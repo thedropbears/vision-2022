@@ -52,3 +52,9 @@ while True:
         current_image += 1
         if current_image == len(args.image):
             exit()
+
+    if args.video or args.camera:
+        vision.run()
+    
+    if cv2.waitKey(1) & 0xFF == ord('q'):  # press q to quit
+        break
