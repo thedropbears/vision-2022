@@ -1,6 +1,7 @@
 import pytest
 from typing import Tuple
 import math
+import cv2
 from connection import DummyConnection
 from vision import Vision
 from camera_manager import MockImageManager
@@ -10,20 +11,23 @@ from camera_manager import MockImageManager
 with open("test_images/expected.csv") as f:
     lines = f.read().split("\n")
     lines_values = [line.split(",") for line in lines]
+    print(lines_values)
     # convert dist and angle to float
-    images = [( val[0], float(val[1]), float(val[2]) ) for val in lines_values]
+    images = [( val[0], float(val[1]), float(val[2]) ) for val in lines_values if len(val) == 3]
 
 # TODO: could calculate the allowed error based on what would result in a shot missing 
-allowed_azimuth_error = math.radians(5) 
-allowed_dist_error = 0.3
+allowed_x_error = 0.1
+allowed_y_error = 0.1
 
-@pytest.mark.parametrize("filename,expected_dist,expected_angle", images)
-def test_sample_images(filename: str, expected_dist: float, expected_angle: float):
-    vision = Vision(MockImageManager(filename), DummyConnection())
-    output_dist, output_angle = (41.99, 1.99)#vision.run()
+@pytest.mark.parametrize("filename,expected_x,expected_y", images)
+def test_sample_images(filename: str, expected_x: float, expected_y: float):
+    image = cv2.imread(f"./test_images/other/{filename}")
+    assert not image is None
+    vision = Vision(MockImageManager(image), DummyConnection())
+    output_x, output_y = vision.process_image(image)
 
-    dist_error = abs(output_dist-expected_dist)
-    azimuth_error = abs(output_angle-expected_angle)
+    x_error = abs(output_x-expected_x)
+    y_error = abs(output_y-expected_y)
 
-    assert dist_error < allowed_dist_error
-    assert azimuth_error < allowed_azimuth_error
+    assert x_error < allowed_x_error
+    assert y_error < allowed_y_error
