@@ -45,25 +45,35 @@ class Vision:
         filtered_contours = self.filter_contours(contours)
         if len(filtered_contours) == 0:
             return None
+        self.contourAreas = [cv2.contourArea(c) for c in filtered_contours]
         groups = self.group_contours(filtered_contours)
         if len(groups) == 0:
             return None
-        best_group = self.rank_groups(contours, groups)
-        return self.get_values(contours, best_group, (frame.shape[1], frame.shape[0]))
+        best_group = self.rank_groups(filtered_contours, groups)
+        if best_group is None:
+            return None
+        return self.get_values(filtered_contours, best_group, (frame.shape[1], frame.shape[0]))
 
     def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Creates a mask of expected target green color
         """
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, TARGET_HSV_LOW, TARGET_HSV_HIGH)
-        mask = cv2.erode(mask, ERODE_DILATE_KERNEL)
-        mask = cv2.dilate(mask, ERODE_DILATE_KERNEL)
-        return mask
+        self.mask = cv2.inRange(hsv, TARGET_HSV_LOW, TARGET_HSV_HIGH)
+        self.mask = cv2.erode(self.mask, ERODE_DILATE_KERNEL)
+        self.mask = cv2.dilate(self.mask, ERODE_DILATE_KERNEL)
+        return self.mask
 
     def find_contours(self, mask: np.ndarray) -> np.ndarray:
         """Finds contours on a grayscale mask
         """
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        *_, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(
+            self.frame,
+            contours,
+            -1,
+            (255, 0, 0),
+            thickness=2,
+        )
         return contours
 
     def filter_contours(self, contours: np.ndarray) -> np.ndarray:
@@ -78,9 +88,9 @@ class Vision:
         connections = [[] for _ in contours]
         for i, a in enumerate(contours):
             a_com = a.mean(axis=0)[0]
-            a_area = cv2.contourArea(a)
+            a_area = self.contourAreas[i]
             for j, b in enumerate(contours[i + 1:]):
-                max_metric = max(a_area, cv2.contourArea(b)) * METRIC_SCALE_FACTOR
+                max_metric = max(a_area, self.contourAreas[j]) * METRIC_SCALE_FACTOR
                 b_com = b.mean(axis=0)[0]
                 d = a_com - b_com
                 metric = d[0] ** 2 + d[1] ** 2
@@ -110,13 +120,13 @@ class Vision:
                 horizon = new_horizon
         return groups
 
-    def rank_groups(self, contours: np.ndarray, groups: List[List[int]]) -> List[int]:
+    def rank_groups(self, contours: np.ndarray, groups: List[List[int]]) -> Optional[List[int]]:
         """Returns the group that is most likely to be the target
         Could use metrics such as curvature, consistency of contours, consistency with last frame
 
         Currently just returns the group with most elements
         """
-        return max(groups, key=len)
+        return max((g for g in groups if len(g) > 2), key=lambda x: sum(self.contourAreas[i] for i in x), default=None)
 
     def get_values(self, contours: np.ndarray, group: List[int], frame_size: Tuple[int, int]) -> Tuple[float, float]:
         """Returns position of target in normalized device coordinates from contour group
@@ -125,10 +135,11 @@ class Vision:
         summed = np.array((0.0, 0.0))
         total_area = 0
         for c in group:
-            area = cv2.contourArea(contours[c])
+            area = self.contourAreas[c]
             summed += contours[c].mean(axis=0)[0] * area
             total_area += area
         weighted_position =  summed / total_area
+        cv2.circle(self.frame, tuple(map(int, weighted_position)), 5, (0, 0, 255), -1)
         return (
             weighted_position[0] * 2.0 / frame_size[0] - 1.0,
             weighted_position[1] * 2.0 / frame_size[1] - 1.0,
