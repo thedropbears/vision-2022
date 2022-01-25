@@ -52,7 +52,7 @@ def process_image(
     best_group = rank_groups(groups, contour_areas)
     if best_group is None:
         display = annotate_image(frame, contours, [], (-1, -1))
-        return [None, display]
+        return (None, display)
     values = get_values(
         contours, best_group, (frame.shape[1], frame.shape[0]), contour_areas
     )
@@ -75,7 +75,7 @@ def find_contours(mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return contours
 
 
-def group_contours(contours: np.ndarray, contour_areas: list) -> List[List[int]]:
+def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[int]]:
     """Returs a nested list of contour indices grouped by relative distance"""
     # Build an adjacency list based on distance between contours relative to their area
     connections = [[] for _ in contours]
@@ -120,12 +120,12 @@ def rank_groups(
     groups: List[List[int]], contour_areas: np.ndarray
 ) -> Optional[List[int]]:
     """Returns the group that is most likely to be the target
-    Could use metrics such as curvature, consistency of contours, consistency with last frame
-
-    Currently just returns the group with most elements
+    Takes the group with the largest combined area that has >1 contour
     """
+    # throw away groups with only 1 target as they are likely a false positive
+    valid_groups = (g for g in groups if len(g) > 1)
     return max(
-        (g for g in groups if len(g) > 1),
+        valid_groups,
         key=lambda x: sum(contour_areas[i] for i in x),
         default=None,
     )
@@ -166,9 +166,10 @@ def annotate_image(
     x = int((pos[0] + 1) / 2 * display.shape[1])
     y = int((pos[1] + 1) / 2 * display.shape[0])
 
-    for i, _ in enumerate(group[:-1]):
-        p1 = contours[group[i]][0][0]  # just take the first point for speed
-        p2 = contours[group[i + 1]][0][0]
+    for c1, c2 in zip(group, group[1:]):
+        # takes the first point in each contour to be fast
+        p1 = contours[c1][0][0] # each point is [[x, y]]
+        p2 = contours[c2][0][0]
         cv2.line(display, p1, p2, (0, 255, 0), 1)
 
     cv2.circle(display, (x, y), 5, (0, 0, 255), -1)
