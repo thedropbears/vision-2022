@@ -17,7 +17,7 @@ class CameraManager:
         pixel_format: str,
     ) -> None:
         """Initialises a Camera Manager
-        
+
         Args:
             name: The name of the camera
             path: The path of the camera (can be id, path, or /dev/video)
@@ -168,7 +168,7 @@ class WebcamCameraManager:
     def __init__(self, camera: int = 0) -> None:
         """Initialises a Webcam Camera Manager. Designed to run on a non-pi computer.
         Initialises it with the first detected system camera, for example a webcam.
-        
+
         Args:
             camera: Which camera to use. Default is 0th, probably a builtin webcam for most people.
         """

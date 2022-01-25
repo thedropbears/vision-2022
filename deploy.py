@@ -4,9 +4,7 @@ import argparse
 
 files = ["magic_numbers.py", "connection.py", "camera_manager.py"]
 
-parser = argparse.ArgumentParser(
-    "Upload code to the Pi. IP defaults to 10.47.74.11"
-)
+parser = argparse.ArgumentParser("Upload code to the Pi. IP defaults to 10.47.74.11")
 parser.add_argument("-i", "--initial", help="Set pi to use Python", action="store_true")
 parser.add_argument("-ip", "--ip", help="Specify a custom ip")
 args = parser.parse_args()
