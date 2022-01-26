@@ -69,7 +69,7 @@ def preprocess(frame: np.ndarray) -> np.ndarray:
     """Creates a mask of expected target green color"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, TARGET_HSV_LOW, TARGET_HSV_HIGH)
-    mask = cv2.erode(mask, ERODE_DILATE_KERNEL)
+    mask = cv2.erode(mask, ERODE_DILATE_KERNEL) 
     mask = cv2.dilate(mask, ERODE_DILATE_KERNEL)
     return mask
 
@@ -150,11 +150,13 @@ def get_values(
         area = contour_areas[c]
         summed += contours[c].mean(axis=0)[0] * area
         total_area += area
-    weighted_position = summed / total_area
+    weighted_position = summed / total_area # xy position
+
+    angle = (weighted_position[0] * 2.0 / frame_size[0] - 1.0) * MAX_FOV_WIDTH/2
 
     return (
-        weighted_position[0] * 2.0 / frame_size[0] - 1.0,
         weighted_position[1] * 2.0 / frame_size[1] - 1.0,
+        angle,
     )
 
 
@@ -168,14 +170,14 @@ def annotate_image(
         (255, 0, 0),
         thickness=2,
     )
-    x = int((pos[0] + 1) / 2 * display.shape[1])
-    y = int((pos[1] + 1) / 2 * display.shape[0])
+    x = int((pos[1]/MAX_FOV_WIDTH*2+1)/2 * display.shape[1])
+    y = int((pos[0] + 1) / 2 * display.shape[0])
 
     for c1, c2 in zip(group, group[1:]):
         # takes the first point in each contour to be fast
         p1 = contours[c1][0][0]  # each point is [[x, y]]
         p2 = contours[c2][0][0]
-        cv2.line(display, p1, p2, (0, 255, 0), 1)
+        cv2.line(display, tuple(map(int, p1)), tuple(map(int, p2)), (0, 255, 0), 1)
 
     cv2.circle(display, (x, y), 5, (0, 0, 255), -1)
     return display
