@@ -1,6 +1,6 @@
 from camera_manager import CameraManager
 from connection import NTConnection
-from magic_numbers import *
+from magic_numbers import ERODE_DILATE_KERNEL, METRIC_SCALE_FACTOR, TARGET_HSV_HIGH, TARGET_HSV_LOW
 from typing import Tuple, Optional, List
 import cv2
 import numpy as np
