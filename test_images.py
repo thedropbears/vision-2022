@@ -1,5 +1,4 @@
 import pytest
-from typing import Tuple
 import cv2
 from connection import DummyConnection
 import vision
