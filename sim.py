@@ -30,7 +30,7 @@ if args.image:
         shape=(magic_numbers.FRAME_HEIGHT, magic_numbers.FRAME_WIDTH, 3), dtype=np.uint8
     )
     current_image = 0
-    camera_manager = MockImageManager(frame, display_output=False)
+    camera_manager = MockImageManager(frame, display_output=True)
 elif args.video:
     print(f"VIDEO: {args.video}")
     camera_manager = MockVideoManager(cv2.VideoCapture(args.video), display_output=True)
