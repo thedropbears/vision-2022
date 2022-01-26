@@ -15,7 +15,7 @@ Use `test_images.py` to run vision code on test images and see any that are wron
 Use `sim.py` to view the results for a single image, video, or webcam on your computer
 e.g.
 
-    python3 sim.py -i test_images/other/NearLaunchpad8ft10in.png 
+    python3 sim.py -i test_images/other/NearLaunchpad8ft10in.png
 
 ## Deploying
 You can either use `deploy.py` or the web console

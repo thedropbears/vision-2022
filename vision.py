@@ -168,7 +168,7 @@ def annotate_image(
 
     for c1, c2 in zip(group, group[1:]):
         # takes the first point in each contour to be fast
-        p1 = contours[c1][0][0] # each point is [[x, y]]
+        p1 = contours[c1][0][0]  # each point is [[x, y]]
         p2 = contours[c2][0][0]
         cv2.line(display, p1, p2, (0, 255, 0), 1)
 
