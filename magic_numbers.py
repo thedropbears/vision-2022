@@ -2,8 +2,8 @@ import numpy as np
 import math
 
 # Camera settings
-FRAME_WIDTH = 320
-FRAME_HEIGHT = 240
+FRAME_WIDTH = 1280
+FRAME_HEIGHT = 720
 
 # Target HSV for masking
 TARGET_HSV_LOW = np.array((50, 150, 60), dtype=np.uint8)
@@ -16,8 +16,10 @@ TARGET_HSV_HIGH = np.array((110, 255, 255), dtype=np.uint8)
 # Mask erode/dilate kernel
 ERODE_DILATE_KERNEL = np.ones((3, 3), dtype=np.float32)
 
+MIN_ASPECT_RATIO = 0.9
+
 # Factor by which areas of contours are multiplied to get an estimate for allowed distance squared between them
-METRIC_SCALE_FACTOR = 25
+METRIC_SCALE_FACTOR = 26
 
 # The following were careful measurements of the frame area with the camera
 # aimed at a flat wall, and the distance of the camera from the wall. All are in
@@ -28,3 +30,13 @@ FOV_DISTANCE = 2234
 
 MAX_FOV_WIDTH = math.atan2(FOV_WIDTH / 2, FOV_DISTANCE) * 2  # 54.54 degrees
 MAX_FOV_HEIGHT = math.atan2(FOV_HEIGHT / 2, FOV_DISTANCE) * 2  # 42.31 degrees
+
+# Angle which camera's main axis forms with the horizontal plane
+GROUND_ANGLE = 0.1
+TARGET_HEIGHT = 2.64
+ROBOT_HEIGHT = 1
+REL_TARGET_HEIGHT = TARGET_HEIGHT - ROBOT_HEIGHT
+
+# Coeffecients for group fitness
+HEIGHT_K = -4
+TOTAL_AREA_K = 1

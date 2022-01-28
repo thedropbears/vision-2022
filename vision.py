@@ -51,18 +51,20 @@ def process_image(
     """
 
     mask = preprocess(frame)
-    contours = find_contours(mask)
+    contours = filter_contours(find_contours(mask))
     contour_areas = [cv2.contourArea(c) for c in contours]
     groups = group_contours(contours, contour_areas)
-    best_group = rank_groups(groups, contour_areas)
+    best_group = rank_groups(groups, contours, contour_areas)
     if best_group is None:
         display = annotate_image(frame, contours, [], (-1, -1))
         return (None, display)
-    values = get_values(
-        contours, best_group, (frame.shape[1], frame.shape[0]), contour_areas
-    )
-    display = annotate_image(frame, contours, best_group, values)
-    return values, display
+    pos = group_com(contours, best_group, contour_areas)
+    display = annotate_image(frame, contours, best_group, pos)
+
+    angle = (pos[0] * 2.0 / FRAME_WIDTH - 1.0) * MAX_FOV_WIDTH/2
+    distance = REL_TARGET_HEIGHT / math.tan(GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2)
+
+    return (angle, distance), display
 
 
 def preprocess(frame: np.ndarray) -> np.ndarray:
@@ -79,6 +81,12 @@ def find_contours(mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     *_, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
+def filter_contours(contours: List[np.ndarray]) -> List[np.ndarray]:
+    """Filters contours based on their aspect ratio, discaring tall ones"""
+    def is_contour_good(contour: np.ndarray):
+        _, _, w, h = cv2.boundingRect(contour)
+        return w / h > MIN_ASPECT_RATIO
+    return [c for c in contours if is_contour_good(c)]
 
 def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[int]]:
     """Returs a nested list of contour indices grouped by relative distance"""
@@ -122,7 +130,7 @@ def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[
 
 
 def rank_groups(
-    groups: List[List[int]], contour_areas: np.ndarray
+    groups: List[List[int]], contours: np.ndarray, contour_areas: np.ndarray
 ) -> Optional[List[int]]:
     """Returns the group that is most likely to be the target
     Takes the group with the largest combined area that has >1 contour
@@ -131,18 +139,31 @@ def rank_groups(
     valid_groups = (g for g in groups if len(g) > 1)
     return max(
         valid_groups,
-        key=lambda x: sum(contour_areas[i] for i in x),
+        key=lambda x: group_fitness(x, contours, contour_areas),
         default=None,
     )
 
+def group_fitness(
+    group: List[int], contours: np.ndarray, contour_areas: np.ndarray
+) -> float:
+    min_y = FRAME_HEIGHT
+    max_y = 0
+    for i in group:
+        c = contours[i]
+        for p in c:
+            max_y = max(max_y, p[0][1])
+            min_y = min(min_y, p[0][1])
+    height = max_y - min_y
+    return\
+        sum(contour_areas[i] for i in group) * TOTAL_AREA_K +\
+        height * HEIGHT_K
 
-def get_values(
+def group_com(
     contours: np.ndarray,
     group: List[int],
-    frame_size: Tuple[int, int],
     contour_areas: List[int],
-) -> Tuple[float, float]:
-    """Returns position of target in normalized device coordinates from contour group"""
+) -> Tuple[int, int]:
+    """Return center of mass of a contour group"""
     # Calculates mean of contour centers weighted by their areas
     summed = np.array((0.0, 0.0))
     total_area = 0
@@ -151,13 +172,7 @@ def get_values(
         summed += contours[c].mean(axis=0)[0] * area
         total_area += area
     weighted_position = summed / total_area # xy position
-
-    angle = (weighted_position[0] * 2.0 / frame_size[0] - 1.0) * MAX_FOV_WIDTH/2
-
-    return (
-        weighted_position[1] * 2.0 / frame_size[1] - 1.0,
-        angle,
-    )
+    return (int(weighted_position[0]), int(weighted_position[1]))
 
 
 def annotate_image(
@@ -170,16 +185,13 @@ def annotate_image(
         (255, 0, 0),
         thickness=2,
     )
-    x = int((pos[1]/MAX_FOV_WIDTH*2+1)/2 * display.shape[1])
-    y = int((pos[0] + 1) / 2 * display.shape[0])
-
     for c1, c2 in zip(group, group[1:]):
         # takes the first point in each contour to be fast
         p1 = contours[c1][0][0]  # each point is [[x, y]]
         p2 = contours[c2][0][0]
         cv2.line(display, tuple(map(int, p1)), tuple(map(int, p2)), (0, 255, 0), 1)
 
-    cv2.circle(display, (x, y), 5, (0, 0, 255), -1)
+    cv2.circle(display, pos, 5, (0, 0, 255), -1)
     return display
 
 
