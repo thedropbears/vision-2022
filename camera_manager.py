@@ -1,8 +1,7 @@
 import numpy as np
-import json
 import cv2
-from magic_numbers import *
-from typing import List, Tuple, Dict
+from magic_numbers import FRAME_HEIGHT, FRAME_WIDTH
+from typing import Tuple
 import sys
 
 

@@ -1,9 +1,6 @@
 import pytest
-from typing import Tuple
 import cv2
-from connection import DummyConnection
 import vision
-from camera_manager import MockImageManager
 
 # load expected values for sample images
 # should be in format: image name,dist,angle
