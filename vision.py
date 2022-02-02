@@ -62,21 +62,31 @@ def process_image(
     pos = group_com(contours, best_group, contour_areas)
     display = annotate_image(frame, contours, best_group, pos)
 
-    angle = (pos[0] * 2.0 / FRAME_WIDTH - 1.0) * MAX_FOV_WIDTH/2
+    angle = (pos[0] * 2.0 / FRAME_WIDTH - 1.0) * MAX_FOV_WIDTH / 2
     # Trigonometrically estimated from the group's COM height on the screen
-    trig_based_distance = REL_TARGET_HEIGHT / math.tan(GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2)
-    # Estimated from median contour area 
-    area_based_distance = RAW_AREA_C / sqrt(np.median([contour_areas[c] for c in best_group]))
-    distance = trig_based_distance * TRIG_DISTANCE_K + area_based_distance * AREA_DISTANCE_K
+    trig_based_distance = REL_TARGET_HEIGHT / math.tan(
+        GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2
+    )
+    # Estimated from median contour area
+    area_based_distance = RAW_AREA_C / sqrt(
+        np.median([contour_areas[c] for c in best_group])
+    )
+    distance = (
+        trig_based_distance * TRIG_DISTANCE_K + area_based_distance * AREA_DISTANCE_K
+    )
 
-    return (angle, distance, group_fitness(best_group, contours, contour_areas)), display
+    return (
+        angle,
+        distance,
+        group_fitness(best_group, contours, contour_areas),
+    ), display
 
 
 def preprocess(frame: np.ndarray) -> np.ndarray:
     """Creates a mask of expected target green color"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, TARGET_HSV_LOW, TARGET_HSV_HIGH)
-    mask = cv2.erode(mask, ERODE_DILATE_KERNEL) 
+    mask = cv2.erode(mask, ERODE_DILATE_KERNEL)
     mask = cv2.dilate(mask, ERODE_DILATE_KERNEL)
     return mask
 
@@ -86,12 +96,16 @@ def find_contours(mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     *_, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
+
 def filter_contours(contours: List[np.ndarray]) -> List[np.ndarray]:
     """Filters contours based on their aspect ratio, discaring tall ones"""
+
     def is_contour_good(contour: np.ndarray):
         _, _, w, h = cv2.boundingRect(contour)
         return w / h > MIN_ASPECT_RATIO
+
     return [c for c in contours if is_contour_good(c)]
+
 
 def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[int]]:
     """Returs a nested list of contour indices grouped by relative distance"""
@@ -148,6 +162,7 @@ def rank_groups(
         default=None,
     )
 
+
 def group_fitness(
     group: List[int], contours: np.ndarray, contour_areas: np.ndarray
 ) -> float:
@@ -159,9 +174,8 @@ def group_fitness(
             max_y = max(max_y, p[0][1])
             min_y = min(min_y, p[0][1])
     height = max_y - min_y
-    return\
-        sum(contour_areas[i] for i in group) * TOTAL_AREA_K +\
-        height * HEIGHT_K
+    return sum(contour_areas[i] for i in group) * TOTAL_AREA_K + height * HEIGHT_K
+
 
 def group_com(
     contours: np.ndarray,
@@ -176,7 +190,7 @@ def group_com(
         area = contour_areas[c]
         summed += contours[c].mean(axis=0)[0] * area
         total_area += area
-    weighted_position = summed / total_area # xy position
+    weighted_position = summed / total_area  # xy position
     return (int(weighted_position[0]), int(weighted_position[1]))
 
 
