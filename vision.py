@@ -7,7 +7,7 @@ from magic_numbers import (
     TARGET_HSV_LOW,
 )
 from typing import Tuple, Optional, List
-from math import sqrt
+from math import sqrt, tan
 import cv2
 import numpy as np
 import time
@@ -64,7 +64,7 @@ def process_image(
 
     angle = (pos[0] * 2.0 / FRAME_WIDTH - 1.0) * MAX_FOV_WIDTH / 2
     # Trigonometrically estimated from the group's COM height on the screen
-    trig_based_distance = REL_TARGET_HEIGHT / math.tan(
+    trig_based_distance = REL_TARGET_HEIGHT / tan(
         GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2
     )
     # Estimated from median contour area
