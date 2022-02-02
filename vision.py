@@ -7,6 +7,7 @@ from magic_numbers import (
     TARGET_HSV_LOW,
 )
 from typing import Tuple, Optional, List
+from math import sqrt
 import cv2
 import numpy as np
 import time
@@ -33,9 +34,9 @@ class Vision:
         results, display = process_image(frame)
 
         if results is not None:
-            x, y = results
+            angle, distance, fitness = results
             self.connection.send_results(
-                (x, y, time.monotonic())
+                (angle, distance, fitness, time.monotonic())
             )  # x and y in NDC, positive axes right and down; timestamp
 
         # send image to display on driverstation
@@ -45,7 +46,7 @@ class Vision:
 
 def process_image(
     frame: np.ndarray,
-) -> Tuple[Optional[Tuple[float, float]], np.ndarray]:
+) -> Tuple[Optional[Tuple[float, float, float]], np.ndarray]:
     """Takes a frame returns the target dist & angle and an annotated display
     returns None if there is no target
     """
@@ -62,9 +63,13 @@ def process_image(
     display = annotate_image(frame, contours, best_group, pos)
 
     angle = (pos[0] * 2.0 / FRAME_WIDTH - 1.0) * MAX_FOV_WIDTH/2
-    distance = REL_TARGET_HEIGHT / math.tan(GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2)
+    # Trigonometrically estimated from the group's COM height on the screen
+    trig_based_distance = REL_TARGET_HEIGHT / math.tan(GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2)
+    # Estimated from median contour area 
+    area_based_distance = RAW_AREA_C / sqrt(np.median([contour_areas[c] for c in best_group]))
+    distance = trig_based_distance * TRIG_DISTANCE_K + area_based_distance * AREA_DISTANCE_K
 
-    return (angle, distance), display
+    return (angle, distance, group_fitness(best_group, contours, contour_areas)), display
 
 
 def preprocess(frame: np.ndarray) -> np.ndarray:

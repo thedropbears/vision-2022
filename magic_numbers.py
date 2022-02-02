@@ -36,6 +36,10 @@ GROUND_ANGLE = 0.1
 TARGET_HEIGHT = 2.64
 ROBOT_HEIGHT = 1
 REL_TARGET_HEIGHT = TARGET_HEIGHT - ROBOT_HEIGHT
+RAW_AREA_C = 100
+# Weightings for angle- and area- based distance estimations
+TRIG_DISTANCE_K = 0.5
+AREA_DISTANCE_K = 1 - TRIG_DISTANCE_K
 
 # Coeffecients for group fitness
 HEIGHT_K = -4
