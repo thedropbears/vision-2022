@@ -1,4 +1,3 @@
-from string import ascii_uppercase
 from camera_manager import CameraManager
 from connection import NTConnection
 from magic_numbers import (
