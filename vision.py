@@ -1,3 +1,4 @@
+from string import ascii_uppercase
 from camera_manager import CameraManager
 from connection import NTConnection
 from magic_numbers import (
@@ -22,7 +23,7 @@ class Vision:
         """Main process function.
         Captures an image, processes the image, and sends results to the RIO.
         """
-
+        self.connection.pong()
         frame_time, frame = self.camera_manager.get_frame()
         # frame time is 0 in case of an error
         if frame_time == 0:
@@ -34,9 +35,9 @@ class Vision:
         results, display = process_image(frame)
 
         if results is not None:
-            angle, distance, fitness = results
+            angle, distance, confidence = results
             self.connection.send_results(
-                (angle, distance, fitness, time.monotonic())
+                (angle, distance, confidence, time.monotonic())
             )  # x and y in NDC, positive axes right and down; timestamp
 
         # send image to display on driverstation
@@ -78,7 +79,7 @@ def process_image(
     return (
         angle,
         distance,
-        group_fitness(best_group, contours, contour_areas),
+        group_confidence(best_group, contours, contour_areas),
     ), display
 
 
@@ -102,7 +103,7 @@ def filter_contours(contours: List[np.ndarray]) -> List[np.ndarray]:
 
     def is_contour_good(contour: np.ndarray):
         _, _, w, h = cv2.boundingRect(contour)
-        return w / h > MIN_ASPECT_RATIO
+        return w / h > MIN_CONTOUR_ASPECT_RATIO
 
     return [c for c in contours if is_contour_good(c)]
 
@@ -163,18 +164,65 @@ def rank_groups(
     )
 
 
+def lerp(
+    value: float,
+    input_lower: float,
+    input_upper: float,
+    output_lower: float,
+    output_upper: float,
+) -> float:
+    """Scales a value based on the input range and output range.
+    For example, to scale a joystick throttle (1 to -1) to 0-1, we would:
+        scale_value(joystick.getThrottle(), 1, -1, 0, 1)
+    """
+    input_distance = input_upper - input_lower
+    output_distance = output_upper - output_lower
+    ratio = (value - input_lower) / input_distance
+    result = ratio * output_distance + output_lower
+    return result
+
+
 def group_fitness(
+    group: List[int],
+    contours: np.ndarray,
+    contour_areas: np.ndarray,
+) -> float:
+    """Fittness function for ranking the groups, unitless"""
+    bounding_rects = [cv2.boundingRect(contours[i]) for i in group]
+    min_y = min(rect[1] for rect in bounding_rects)
+    max_y = max(rect[1] + rect[3] for rect in bounding_rects)
+    height = max_y - min_y
+    return sum(contour_areas[i] for i in group) * TOTAL_AREA_K + height**2 * HEIGHT_K
+
+
+def group_confidence(
     group: List[int], contours: np.ndarray, contour_areas: np.ndarray
 ) -> float:
-    min_y = FRAME_HEIGHT
-    max_y = 0
-    for i in group:
-        c = contours[i]
-        for p in c:
-            max_y = max(max_y, p[0][1])
-            min_y = min(min_y, p[0][1])
+    """Confidence for a group 0-1"""
+    # work out aspect ratio
+    bounding_rects = [cv2.boundingRect(contours[i]) for i in group]
+    min_x = min(rect[0] for rect in bounding_rects)
+    max_x = max(rect[0] + rect[2] for rect in bounding_rects)
+    min_y = min(rect[1] for rect in bounding_rects)
+    max_y = max(rect[1] + rect[3] for rect in bounding_rects)
     height = max_y - min_y
-    return sum(contour_areas[i] for i in group) * TOTAL_AREA_K + height * HEIGHT_K
+    width = max_x - min_x
+    aspect_ratio = width / height
+    aspect_ratio_error = abs(1 - GROUP_ASPECT_RATIO / aspect_ratio)
+
+    # how close to being a rectangle each contour is
+    rects_area = sum(rect[2] * rect[3] for rect in bounding_rects)
+    real_area = sum(contour_areas[i] for i in group)
+    rectangulares = real_area / rects_area
+
+    length = lerp(len(group), 2, 5, 0.5, 1)
+
+    return (
+        lerp(aspect_ratio_error, 0, SATURATING_ASPECT_RATIO_ERROR, 1, 0)
+        * CONF_ASPECT_RATIO_K
+        + rectangulares * CONF_RECTANGULARES_K
+        + length * CONF_LENGTH_K
+    ) / CONF_TOTAL
 
 
 def group_com(
