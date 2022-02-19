@@ -7,7 +7,7 @@ from magic_numbers import (
     TARGET_HSV_LOW,
 )
 from typing import Tuple, Optional, List
-from math import sqrt, tan
+from math import tan
 import cv2
 import numpy as np
 import time
@@ -30,7 +30,7 @@ class Vision:
             return
 
         # Flip the image beacuse it's originally upside down.
-        #frame = cv2.rotate(frame, cv2.ROTATE_180)
+        # frame = cv2.rotate(frame, cv2.ROTATE_180)
         results, display = process_image(frame)
 
         if results is not None:
@@ -67,17 +67,11 @@ def process_image(
     angle = norm_x * MAX_FOV_WIDTH / 2
     # Trigonometrically estimated from the group's COM height on the screen
     vert_angle = GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2
-    distance = REL_TARGET_HEIGHT / tan(
-            vert_angle
-    ) + DISTANCE_CORRECTION
+    distance = REL_TARGET_HEIGHT / tan(vert_angle) + DISTANCE_CORRECTION
     conf = group_confidence(best_group, contours, contour_areas) * (1.0 - abs(norm_x))
-    #print(distance, conf)
+    # print(distance, conf)
 
-    return (
-        angle,
-        distance,
-        conf
-    ), display
+    return (angle, distance, conf), display
 
 
 def preprocess(frame: np.ndarray) -> np.ndarray:
@@ -236,8 +230,10 @@ def group_com(
         summed += contours[c].mean(axis=0)[0] * area
         total_area += area
     weighted_position = summed / total_area  # xy position
-    return (int(weighted_position[0]), min(min(p[0][1] for p in contours[c]) for c in group))
-
+    return (
+        int(weighted_position[0]),
+        min(min(p[0][1] for p in contours[c]) for c in group),
+    )
 
 
 def annotate_image(
@@ -265,7 +261,9 @@ if __name__ == "__main__":
     # to run vision code on your laptop use sim.py
 
     vision = Vision(
-        CameraManager("Power Port Camera", "/dev/video0", FRAME_HEIGHT, FRAME_WIDTH, 30, "kYUYV"),
+        CameraManager(
+            "Power Port Camera", "/dev/video0", FRAME_HEIGHT, FRAME_WIDTH, 30, "kYUYV"
+        ),
         NTConnection(),
     )
     while True:
