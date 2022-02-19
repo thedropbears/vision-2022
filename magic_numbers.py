@@ -2,11 +2,11 @@ import numpy as np
 import math
 
 # Camera settings
-FRAME_WIDTH = 1280
-FRAME_HEIGHT = 720
+FRAME_WIDTH = 320
+FRAME_HEIGHT = 240
 
 # Target HSV for masking
-TARGET_HSV_LOW = np.array((50, 150, 60), dtype=np.uint8)
+TARGET_HSV_LOW = np.array((50, 120, 20), dtype=np.uint8)
 TARGET_HSV_HIGH = np.array((110, 255, 255), dtype=np.uint8)
 
 # bad for testing
@@ -31,12 +31,13 @@ FOV_HEIGHT = 1793
 FOV_DISTANCE = 2234
 
 MAX_FOV_WIDTH = math.atan2(FOV_WIDTH / 2, FOV_DISTANCE) * 2  # 54.54 degrees
-MAX_FOV_HEIGHT = math.atan2(FOV_HEIGHT / 2, FOV_DISTANCE) * 2  # 43.73 degrees
+MAX_FOV_HEIGHT = 45 / 180 * math.pi #math.atan2(FOV_HEIGHT / 2, FOV_DISTANCE) * 2  # 43.73 degrees
 
 # Angle which camera's main axis forms with the horizontal plane
-GROUND_ANGLE = 0.1
-TARGET_HEIGHT = 2.64
-ROBOT_HEIGHT = 1
+GROUND_ANGLE = 0.42
+TARGET_HEIGHT = 2.66
+ROBOT_HEIGHT = 0.81
+DISTANCE_CORRECTION = 0.2 # Constant offset of returned distance, ultimately should be 0
 REL_TARGET_HEIGHT = TARGET_HEIGHT - ROBOT_HEIGHT
 RAW_AREA_C = 100
 # Weightings for angle- and area- based distance estimations

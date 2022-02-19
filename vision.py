@@ -30,7 +30,7 @@ class Vision:
             return
 
         # Flip the image beacuse it's originally upside down.
-        frame = cv2.rotate(frame, cv2.ROTATE_180)
+        #frame = cv2.rotate(frame, cv2.ROTATE_180)
         results, display = process_image(frame)
 
         if results is not None:
@@ -58,27 +58,25 @@ def process_image(
     best_group = rank_groups(groups, contours, contour_areas)
     if best_group is None:
         display = annotate_image(frame, contours, [], (-1, -1))
+        cv2.circle(display, (FRAME_WIDTH // 2, FRAME_HEIGHT // 2), 5, (0, 255, 255), -1)
         return (None, display)
     pos = group_com(contours, best_group, contour_areas)
     display = annotate_image(frame, contours, best_group, pos)
 
-    angle = (pos[0] * 2.0 / FRAME_WIDTH - 1.0) * MAX_FOV_WIDTH / 2
+    norm_x = pos[0] * 2.0 / FRAME_WIDTH - 1.0
+    angle = norm_x * MAX_FOV_WIDTH / 2
     # Trigonometrically estimated from the group's COM height on the screen
-    trig_based_distance = REL_TARGET_HEIGHT / tan(
-        GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2
-    )
-    # Estimated from median contour area
-    area_based_distance = RAW_AREA_C / sqrt(
-        np.median([contour_areas[c] for c in best_group])
-    )
-    distance = (
-        trig_based_distance * TRIG_DISTANCE_K + area_based_distance * AREA_DISTANCE_K
-    )
+    vert_angle = GROUND_ANGLE - (pos[1] * 2.0 / FRAME_HEIGHT - 1.0) * MAX_FOV_HEIGHT / 2
+    distance = REL_TARGET_HEIGHT / tan(
+            vert_angle
+    ) + DISTANCE_CORRECTION
+    conf = group_confidence(best_group, contours, contour_areas) * (1.0 - abs(norm_x))
+    #print(distance, conf)
 
     return (
         angle,
         distance,
-        group_confidence(best_group, contours, contour_areas),
+        conf
     ), display
 
 
@@ -238,7 +236,8 @@ def group_com(
         summed += contours[c].mean(axis=0)[0] * area
         total_area += area
     weighted_position = summed / total_area  # xy position
-    return (int(weighted_position[0]), int(weighted_position[1]))
+    return (int(weighted_position[0]), min(min(p[0][1] for p in contours[c]) for c in group))
+
 
 
 def annotate_image(
@@ -266,7 +265,7 @@ if __name__ == "__main__":
     # to run vision code on your laptop use sim.py
 
     vision = Vision(
-        CameraManager("Power Port Camera", "/dev/video0", 240, 320, 30, "kYUYV"),
+        CameraManager("Power Port Camera", "/dev/video0", FRAME_HEIGHT, FRAME_WIDTH, 30, "kYUYV"),
         NTConnection(),
     )
     while True:
