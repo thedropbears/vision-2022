@@ -31,9 +31,7 @@ FOV_HEIGHT = 1793
 FOV_DISTANCE = 2234
 
 MAX_FOV_WIDTH = math.atan2(FOV_WIDTH / 2, FOV_DISTANCE) * 2  # 54.54 degrees
-MAX_FOV_HEIGHT = (
-    45 / 180 * math.pi
-)  # math.atan2(FOV_HEIGHT / 2, FOV_DISTANCE) * 2  # 43.73 degrees
+MAX_FOV_HEIGHT = math.radians(45)  # math.atan2(FOV_HEIGHT / 2, FOV_DISTANCE) * 2  # 43.73 degrees
 
 # Angle which camera's main axis forms with the horizontal plane
 GROUND_ANGLE = 0.42
