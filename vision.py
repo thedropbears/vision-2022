@@ -77,7 +77,7 @@ def get_bearing_distance_to_target(
     vert_angle = magic_numbers.GROUND_ANGLE - norm_y * magic_numbers.MAX_FOV_HEIGHT / 2
     distance = (
         magic_numbers.REL_TARGET_HEIGHT / tan(vert_angle)
-        + magic_numbers.DISTANCE_CORRECTION
+        + magic_numbers.TARGET_EDGE_TO_CENTRE
     )
 
     return (angle, distance)
