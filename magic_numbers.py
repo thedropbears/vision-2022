@@ -6,8 +6,8 @@ FRAME_WIDTH = 320
 FRAME_HEIGHT = 240
 
 # Target HSV for masking
-TARGET_HSV_LOW = np.array((50, 120, 20), dtype=np.uint8)
-TARGET_HSV_HIGH = np.array((110, 255, 255), dtype=np.uint8)
+TARGET_HSV_LOW = np.array((50, 170, 70), dtype=np.uint8)
+TARGET_HSV_HIGH = np.array((90, 255, 255), dtype=np.uint8)
 
 # bad for testing
 # TARGET_HSV_LOW = np.array((30, 40, 30), dtype=np.uint8)
@@ -21,7 +21,7 @@ GROUP_ASPECT_RATIO = 6
 SATURATING_ASPECT_RATIO_ERROR = 0.4
 
 # Factor by which areas of contours are multiplied to get an estimate for allowed distance squared between them
-METRIC_SCALE_FACTOR = 26
+METRIC_SCALE_FACTOR = 30
 
 # The following were careful measurements of the frame area with the camera
 # aimed at a flat wall, and the distance of the camera from the wall. All are in
