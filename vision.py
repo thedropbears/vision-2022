@@ -1,6 +1,6 @@
 from camera_manager import CameraManager
 from connection import NTConnection
-import magic_numbers 
+import magic_numbers
 from typing import Tuple, Optional, List
 from math import tan
 import cv2
@@ -39,6 +39,7 @@ class Vision:
         self.camera_manager.send_frame(display)
         self.connection.set_fps()
 
+
 def process_image(
     frame: np.ndarray,
 ) -> Tuple[Optional[Tuple[float, float, float]], np.ndarray]:
@@ -49,7 +50,7 @@ def process_image(
     frame_width = frame.shape[1]
 
     mask = preprocess(frame)
-    contours = filter_contours(find_contours(mask))  
+    contours = filter_contours(find_contours(mask))
     contour_areas = [cv2.contourArea(c) for c in contours]
     groups = group_contours(contours, contour_areas)
     best_group = rank_groups(groups, contours, contour_areas)
@@ -65,13 +66,19 @@ def process_image(
 
     return (norm_x, norm_y, conf), display
 
-def get_bearing_distance_to_target(normalised_location: Tuple[float, float]) -> Tuple[float, float]:
+
+def get_bearing_distance_to_target(
+    normalised_location: Tuple[float, float]
+) -> Tuple[float, float]:
     norm_x = normalised_location[0]
     norm_y = normalised_location[1]
     angle = norm_x * magic_numbers.MAX_FOV_WIDTH / 2
     # Trigonometrically estimated from the group's COM height on the screen
     vert_angle = magic_numbers.GROUND_ANGLE - norm_y * magic_numbers.MAX_FOV_HEIGHT / 2
-    distance = magic_numbers.REL_TARGET_HEIGHT / tan(vert_angle) + magic_numbers.DISTANCE_CORRECTION
+    distance = (
+        magic_numbers.REL_TARGET_HEIGHT / tan(vert_angle)
+        + magic_numbers.DISTANCE_CORRECTION
+    )
 
     return (angle, distance)
 
@@ -109,7 +116,10 @@ def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[
         a_com = a.mean(axis=0)[0]
         a_area = contour_areas[i]
         for j, b in enumerate(contours[i + 1 :]):
-            max_metric = max(a_area, contour_areas[j + i + 1]) * magic_numbers.METRIC_SCALE_FACTOR
+            max_metric = (
+                max(a_area, contour_areas[j + i + 1])
+                * magic_numbers.METRIC_SCALE_FACTOR
+            )
             b_com = b.mean(axis=0)[0]
             d = a_com - b_com
             metric = d[0] ** 2 + d[1] ** 2
@@ -185,7 +195,10 @@ def group_fitness(
     min_y = min(rect[1] for rect in bounding_rects)
     max_y = max(rect[1] + rect[3] for rect in bounding_rects)
     height = max_y - min_y
-    return sum(contour_areas[i] for i in group) * magic_numbers.TOTAL_AREA_K + height**2 * magic_numbers.HEIGHT_K
+    return (
+        sum(contour_areas[i] for i in group) * magic_numbers.TOTAL_AREA_K
+        + height**2 * magic_numbers.HEIGHT_K
+    )
 
 
 def group_confidence(
@@ -264,7 +277,12 @@ if __name__ == "__main__":
 
     vision = Vision(
         CameraManager(
-            "Power Port Camera", "/dev/video0", magic_numbers.FRAME_HEIGHT, magic_numbers.FRAME_WIDTH, 30, "kYUYV"
+            "Power Port Camera",
+            "/dev/video0",
+            magic_numbers.FRAME_HEIGHT,
+            magic_numbers.FRAME_WIDTH,
+            30,
+            "kYUYV",
         ),
         NTConnection(),
     )
