@@ -48,7 +48,15 @@ class CameraManager:
         self.set_camera_property("exposure_auto", 1)
         self.set_camera_property("focus_auto", 0)
         self.set_camera_property("exposure_absolute", 1)
+        self.set_camera_property("raw_contrast", 255)
         self.set_camera_property("contrast", 100)
+        self.set_camera_property("raw_saturation", 255)
+        self.set_camera_property("saturation", 100)
+        self.set_camera_property("raw_gain", 0)
+        self.set_camera_property("gain", 0)
+        self.set_camera_property("white_balance_temperature", 6500)
+        self.set_camera_property("brightness", 50)
+        self.set_camera_property("raw_brightness", 127)
 
     def get_frame(self) -> Tuple[int, np.ndarray]:
         """Gets a frame from the camera.
