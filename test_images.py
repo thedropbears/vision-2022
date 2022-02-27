@@ -27,7 +27,7 @@ def test_sample_images(filename: str, expected_x: float, expected_y: float):
     results, _ = vision.process_image(image)
 
     assert results is not None
-    output_x, output_y = results
+    output_x, output_y, _ = results
 
     x_error = abs(output_x - expected_x)
     y_error = abs(output_y - expected_y)
