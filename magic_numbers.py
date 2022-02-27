@@ -38,10 +38,9 @@ MAX_FOV_HEIGHT = math.radians(
 # Angle which camera's main axis forms with the horizontal plane
 GROUND_ANGLE = 0.42
 TARGET_HEIGHT = 2.66
-ROBOT_HEIGHT = 0.81
-DISTANCE_CORRECTION = (
-    0.2  # Constant offset of returned distance, ultimately should be 0
-)
+ROBOT_HEIGHT = 0.82
+TARGET_EDGE_TO_CENTRE = 0.61
+
 REL_TARGET_HEIGHT = TARGET_HEIGHT - ROBOT_HEIGHT
 RAW_AREA_C = 100
 # Weightings for angle- and area- based distance estimations
