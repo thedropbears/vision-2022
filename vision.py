@@ -1,12 +1,8 @@
 from camera_manager import CameraManager
 from connection import NTConnection
-from magic_numbers import (
-    ERODE_DILATE_KERNEL,
-    METRIC_SCALE_FACTOR,
-    TARGET_HSV_HIGH,
-    TARGET_HSV_LOW,
-)
+import magic_numbers
 from typing import Tuple, Optional, List
+from math import tan
 import cv2
 import numpy as np
 import time
@@ -21,7 +17,7 @@ class Vision:
         """Main process function.
         Captures an image, processes the image, and sends results to the RIO.
         """
-
+        self.connection.pong()
         frame_time, frame = self.camera_manager.get_frame()
         # frame time is 0 in case of an error
         if frame_time == 0:
@@ -29,13 +25,14 @@ class Vision:
             return
 
         # Flip the image beacuse it's originally upside down.
-        frame = cv2.rotate(frame, cv2.ROTATE_180)
+        # frame = cv2.rotate(frame, cv2.ROTATE_180)
         results, display = process_image(frame)
 
         if results is not None:
-            x, y = results
+            (norm_x, norm_y, confidence) = results
+            (angle, distance) = get_bearing_distance_to_target((norm_x, norm_y))
             self.connection.send_results(
-                (x, y, time.monotonic())
+                (angle, distance, confidence, time.monotonic())
             )  # x and y in NDC, positive axes right and down; timestamp
 
         # send image to display on driverstation
@@ -45,32 +42,53 @@ class Vision:
 
 def process_image(
     frame: np.ndarray,
-) -> Tuple[Optional[Tuple[float, float]], np.ndarray]:
+) -> Tuple[Optional[Tuple[float, float, float]], np.ndarray]:
     """Takes a frame returns the target dist & angle and an annotated display
     returns None if there is no target
     """
+    frame_height = frame.shape[0]
+    frame_width = frame.shape[1]
 
     mask = preprocess(frame)
-    contours = find_contours(mask)
+    contours = filter_contours(find_contours(mask))
     contour_areas = [cv2.contourArea(c) for c in contours]
     groups = group_contours(contours, contour_areas)
-    best_group = rank_groups(groups, contour_areas)
+    best_group = rank_groups(groups, contours, contour_areas)
     if best_group is None:
         display = annotate_image(frame, contours, [], (-1, -1))
+        cv2.circle(display, (frame_width // 2, frame_height // 2), 5, (0, 255, 255), -1)
         return (None, display)
-    values = get_values(
-        contours, best_group, (frame.shape[1], frame.shape[0]), contour_areas
+    pos = group_com(contours, best_group, contour_areas)
+    display = annotate_image(frame, contours, best_group, pos)
+    norm_x = pos[0] * 2.0 / frame_width - 1.0
+    norm_y = pos[1] * 2.0 / frame_height - 1.0
+    conf = group_confidence(best_group, contours, contour_areas) * (1.0 - abs(norm_x))
+
+    return (norm_x, norm_y, conf), display
+
+
+def get_bearing_distance_to_target(
+    normalised_location: Tuple[float, float]
+) -> Tuple[float, float]:
+    norm_x = normalised_location[0]
+    norm_y = normalised_location[1]
+    angle = norm_x * magic_numbers.MAX_FOV_WIDTH / 2
+    # Trigonometrically estimated from the group's COM height on the screen
+    vert_angle = magic_numbers.GROUND_ANGLE - norm_y * magic_numbers.MAX_FOV_HEIGHT / 2
+    distance = (
+        magic_numbers.REL_TARGET_HEIGHT / tan(vert_angle)
+        + magic_numbers.DISTANCE_CORRECTION
     )
-    display = annotate_image(frame, contours, best_group, values)
-    return values, display
+
+    return (angle, distance)
 
 
 def preprocess(frame: np.ndarray) -> np.ndarray:
     """Creates a mask of expected target green color"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, TARGET_HSV_LOW, TARGET_HSV_HIGH)
-    mask = cv2.erode(mask, ERODE_DILATE_KERNEL)
-    mask = cv2.dilate(mask, ERODE_DILATE_KERNEL)
+    mask = cv2.inRange(hsv, magic_numbers.TARGET_HSV_LOW, magic_numbers.TARGET_HSV_HIGH)
+    mask = cv2.erode(mask, magic_numbers.ERODE_DILATE_KERNEL)
+    mask = cv2.dilate(mask, magic_numbers.ERODE_DILATE_KERNEL)
     return mask
 
 
@@ -78,6 +96,16 @@ def find_contours(mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Finds contours on a grayscale mask"""
     *_, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
+
+
+def filter_contours(contours: List[np.ndarray]) -> List[np.ndarray]:
+    """Filters contours based on their aspect ratio, discaring tall ones"""
+
+    def is_contour_good(contour: np.ndarray):
+        _, _, w, h = cv2.boundingRect(contour)
+        return w / h > magic_numbers.MIN_CONTOUR_ASPECT_RATIO
+
+    return [c for c in contours if is_contour_good(c)]
 
 
 def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[int]]:
@@ -88,7 +116,10 @@ def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[
         a_com = a.mean(axis=0)[0]
         a_area = contour_areas[i]
         for j, b in enumerate(contours[i + 1 :]):
-            max_metric = max(a_area, contour_areas[j + i + 1]) * METRIC_SCALE_FACTOR
+            max_metric = (
+                max(a_area, contour_areas[j + i + 1])
+                * magic_numbers.METRIC_SCALE_FACTOR
+            )
             b_com = b.mean(axis=0)[0]
             d = a_com - b_com
             metric = d[0] ** 2 + d[1] ** 2
@@ -122,7 +153,7 @@ def group_contours(contours: np.ndarray, contour_areas: List[int]) -> List[List[
 
 
 def rank_groups(
-    groups: List[List[int]], contour_areas: np.ndarray
+    groups: List[List[int]], contours: np.ndarray, contour_areas: np.ndarray
 ) -> Optional[List[int]]:
     """Returns the group that is most likely to be the target
     Takes the group with the largest combined area that has >1 contour
@@ -131,18 +162,81 @@ def rank_groups(
     valid_groups = (g for g in groups if len(g) > 1)
     return max(
         valid_groups,
-        key=lambda x: sum(contour_areas[i] for i in x),
+        key=lambda x: group_fitness(x, contours, contour_areas),
         default=None,
     )
 
 
-def get_values(
+def lerp(
+    value: float,
+    input_lower: float,
+    input_upper: float,
+    output_lower: float,
+    output_upper: float,
+) -> float:
+    """Scales a value based on the input range and output range.
+    For example, to scale a joystick throttle (1 to -1) to 0-1, we would:
+        scale_value(joystick.getThrottle(), 1, -1, 0, 1)
+    """
+    input_distance = input_upper - input_lower
+    output_distance = output_upper - output_lower
+    ratio = (value - input_lower) / input_distance
+    result = ratio * output_distance + output_lower
+    return result
+
+
+def group_fitness(
+    group: List[int],
+    contours: np.ndarray,
+    contour_areas: np.ndarray,
+) -> float:
+    """Fittness function for ranking the groups, unitless"""
+    bounding_rects = [cv2.boundingRect(contours[i]) for i in group]
+    min_y = min(rect[1] for rect in bounding_rects)
+    max_y = max(rect[1] + rect[3] for rect in bounding_rects)
+    height = max_y - min_y
+    return (
+        sum(contour_areas[i] for i in group) * magic_numbers.TOTAL_AREA_K
+        + height**2 * magic_numbers.HEIGHT_K
+    )
+
+
+def group_confidence(
+    group: List[int], contours: np.ndarray, contour_areas: np.ndarray
+) -> float:
+    """Confidence for a group 0-1"""
+    # work out aspect ratio
+    bounding_rects = [cv2.boundingRect(contours[i]) for i in group]
+    min_x = min(rect[0] for rect in bounding_rects)
+    max_x = max(rect[0] + rect[2] for rect in bounding_rects)
+    min_y = min(rect[1] for rect in bounding_rects)
+    max_y = max(rect[1] + rect[3] for rect in bounding_rects)
+    height = max_y - min_y
+    width = max_x - min_x
+    aspect_ratio = width / height
+    aspect_ratio_error = abs(1 - magic_numbers.GROUP_ASPECT_RATIO / aspect_ratio)
+
+    # how close to being a rectangle each contour is
+    rects_area = sum(rect[2] * rect[3] for rect in bounding_rects)
+    real_area = sum(contour_areas[i] for i in group)
+    rectangulares = real_area / rects_area
+
+    length = lerp(len(group), 2, 5, 0.5, 1)
+
+    return (
+        lerp(aspect_ratio_error, 0, magic_numbers.SATURATING_ASPECT_RATIO_ERROR, 1, 0)
+        * magic_numbers.CONF_ASPECT_RATIO_K
+        + rectangulares * magic_numbers.CONF_RECTANGULARES_K
+        + length * magic_numbers.CONF_LENGTH_K
+    ) / magic_numbers.CONF_TOTAL
+
+
+def group_com(
     contours: np.ndarray,
     group: List[int],
-    frame_size: Tuple[int, int],
     contour_areas: List[int],
-) -> Tuple[float, float]:
-    """Returns position of target in normalized device coordinates from contour group"""
+) -> Tuple[int, int]:
+    """Return center of mass of a contour group"""
     # Calculates mean of contour centers weighted by their areas
     summed = np.array((0.0, 0.0))
     total_area = 0
@@ -150,11 +244,10 @@ def get_values(
         area = contour_areas[c]
         summed += contours[c].mean(axis=0)[0] * area
         total_area += area
-    weighted_position = summed / total_area
-
+    weighted_position = summed / total_area  # xy position
     return (
-        weighted_position[0] * 2.0 / frame_size[0] - 1.0,
-        weighted_position[1] * 2.0 / frame_size[1] - 1.0,
+        int(weighted_position[0]),
+        min(min(p[0][1] for p in contours[c]) for c in group),
     )
 
 
@@ -168,16 +261,13 @@ def annotate_image(
         (255, 0, 0),
         thickness=2,
     )
-    x = int((pos[0] + 1) / 2 * display.shape[1])
-    y = int((pos[1] + 1) / 2 * display.shape[0])
-
     for c1, c2 in zip(group, group[1:]):
         # takes the first point in each contour to be fast
         p1 = contours[c1][0][0]  # each point is [[x, y]]
         p2 = contours[c2][0][0]
-        cv2.line(display, p1, p2, (0, 255, 0), 1)
+        cv2.line(display, tuple(map(int, p1)), tuple(map(int, p2)), (0, 255, 0), 1)
 
-    cv2.circle(display, (x, y), 5, (0, 0, 255), -1)
+    cv2.circle(display, pos, 5, (0, 0, 255), -1)
     return display
 
 
@@ -186,7 +276,14 @@ if __name__ == "__main__":
     # to run vision code on your laptop use sim.py
 
     vision = Vision(
-        CameraManager("Power Port Camera", "/dev/video0", 240, 320, 30, "kYUYV"),
+        CameraManager(
+            "Power Port Camera",
+            "/dev/video0",
+            magic_numbers.FRAME_HEIGHT,
+            magic_numbers.FRAME_WIDTH,
+            30,
+            "kYUYV",
+        ),
         NTConnection(),
     )
     while True:
