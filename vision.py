@@ -13,13 +13,6 @@ class Vision:
         self.camera_manager = camera_manager
         self.connection = connection
 
-        self.camera_manager.set_camera_property("white_balance_temperature_auto", 0)
-        self.camera_manager.set_camera_property("exposure_auto_priority", 0)
-        self.camera_manager.set_camera_property("exposure_auto", 1)
-        self.camera_manager.set_camera_property("focus_auto", 0)
-        self.camera_manager.set_camera_property("exposure_absolute", 1)
-        self.camera_manager.set_camera_property("contrast", 100)
-
     def run(self) -> None:
         """Main process function.
         Captures an image, processes the image, and sends results to the RIO.

@@ -43,6 +43,13 @@ class CameraManager:
         # parameters are the opposite of numpy's (technically it is an array, not an actual image).
         self.frame = np.zeros(shape=(FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
 
+        self.set_camera_property("white_balance_temperature_auto", 0)
+        self.set_camera_property("exposure_auto_priority", 0)
+        self.set_camera_property("exposure_auto", 1)
+        self.set_camera_property("focus_auto", 0)
+        self.set_camera_property("exposure_absolute", 1)
+        self.set_camera_property("contrast", 100)
+
     def get_frame(self) -> Tuple[int, np.ndarray]:
         """Gets a frame from the camera.
         Returns:

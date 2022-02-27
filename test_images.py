@@ -22,7 +22,7 @@ allowed_y_error = 0.1
 
 @pytest.mark.parametrize("filename,expected_x,expected_y", images)
 def test_sample_images(filename: str, expected_x: float, expected_y: float):
-    image = cv2.imread(f"./test_images/other/{filename}")
+    image = cv2.imread(f"./test_images/{filename}")
     assert image is not None
     results, _ = vision.process_image(image)
 
@@ -39,7 +39,7 @@ def test_sample_images(filename: str, expected_x: float, expected_y: float):
 @pytest.mark.parametrize("filename,expected_x,expected_y", fail_images)
 @pytest.mark.xfail
 def test_sample_images_fail(filename: str, expected_x: float, expected_y: float):
-    image = cv2.imread(f"./test_images/other/{filename}")
+    image = cv2.imread(f"./test_images/{filename}")
     assert image is not None
     results, _ = vision.process_image(image)
 
