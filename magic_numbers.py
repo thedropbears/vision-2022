@@ -6,7 +6,7 @@ FRAME_WIDTH = 320
 FRAME_HEIGHT = 240
 
 # Target HSV for masking
-TARGET_HSV_LOW = np.array((50, 170, 70), dtype=np.uint8)
+TARGET_HSV_LOW = np.array((50, 120, 50), dtype=np.uint8)
 TARGET_HSV_HIGH = np.array((90, 255, 255), dtype=np.uint8)
 
 # bad for testing
