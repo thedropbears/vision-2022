@@ -72,7 +72,7 @@ def get_bearing_distance_to_target(
 ) -> Tuple[float, float]:
     norm_x = normalised_location[0]
     norm_y = normalised_location[1]
-    angle = norm_x * magic_numbers.MAX_FOV_WIDTH / 2
+    angle = -norm_x * magic_numbers.MAX_FOV_WIDTH / 2
     # Trigonometrically estimated from the group's COM height on the screen
     vert_angle = magic_numbers.GROUND_ANGLE - norm_y * magic_numbers.MAX_FOV_HEIGHT / 2
     distance = (
